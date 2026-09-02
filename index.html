@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Локальный планировщик рабочих задач и карьерного развития"
+    />
+    <title>Успешная карьера</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#main-content" aria-label="Успешная карьера — к задачам">
+          <span class="brand__mark" aria-hidden="true">УК</span>
+          <span>
+            <strong>Успешная карьера</strong>
+            <small>Работа, которая двигает вперёд</small>
+          </span>
+        </a>
+
+        <div class="topbar__actions">
+          <p class="today-label" id="today-label"></p>
+          <button class="icon-button" id="settings-button" type="button" aria-label="Открыть настройки">
+            ⚙
+          </button>
+          <button class="button button--primary" id="add-task-button" type="button">
+            <span aria-hidden="true">＋</span>
+            Добавить задачу
+          </button>
+        </div>
+      </header>
+
+      <div class="storage-alert" id="storage-alert" role="alert" hidden></div>
+
+      <main class="workspace" id="main-content">
+        <aside class="date-panel" aria-labelledby="date-panel-title">
+          <p class="eyebrow" id="date-panel-title">План на день</p>
+          <h1 id="selected-date-title">Сегодня</h1>
+          <p class="date-panel__full-date" id="selected-date-full"></p>
+
+          <div class="date-controls" aria-label="Выбор дня">
+            <button class="icon-button" id="previous-day-button" type="button" aria-label="Предыдущий день">
+              ←
+            </button>
+            <label class="date-picker">
+              <span>Дата</span>
+              <input id="selected-date-input" type="date" />
+            </label>
+            <button class="icon-button" id="next-day-button" type="button" aria-label="Следующий день">
+              →
+            </button>
+          </div>
+
+          <button class="button button--secondary button--wide" id="today-button" type="button">
+            Вернуться к сегодня
+          </button>
+
+          <section class="month-overview" aria-labelledby="month-overview-title">
+            <div class="month-overview__heading">
+              <button class="month-arrow" id="previous-month-button" type="button" aria-label="Предыдущий месяц">←</button>
+              <h2 id="month-overview-title"></h2>
+              <button class="month-arrow" id="next-month-button" type="button" aria-label="Следующий месяц">→</button>
+            </div>
+            <div class="month-weekdays" aria-hidden="true">
+              <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+            </div>
+            <div class="month-grid" id="month-grid" role="grid" aria-label="Календарь на месяц"></div>
+            <div class="month-summary" id="month-summary" aria-label="Итог задач за месяц"></div>
+          </section>
+
+          <div class="day-summary" aria-live="polite">
+            <span>Всего задач</span>
+            <strong id="day-task-count">0</strong>
+            <span>Выполнено</span>
+            <strong id="day-completed-count">0</strong>
+          </div>
+        </aside>
+
+        <section class="tasks-panel" aria-labelledby="tasks-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Рабочий фокус</p>
+              <h2 id="tasks-heading">Задачи</h2>
+            </div>
+            <button class="button button--secondary tasks-panel__add" id="add-task-secondary" type="button">
+              Добавить
+            </button>
+          </div>
+
+          <div class="week-navigation" aria-label="Дни недели">
+            <button class="icon-button" id="previous-week-button" type="button" aria-label="Предыдущая неделя">←</button>
+            <div class="week-strip" id="week-strip"></div>
+            <button class="icon-button" id="next-week-button" type="button" aria-label="Следующая неделя">→</button>
+          </div>
+
+          <div class="planner-toolbar">
+            <label class="search-field" for="task-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="task-search" type="search" placeholder="Поиск по задачам" autocomplete="off" />
+            </label>
+            <button class="button button--secondary" id="filters-button" type="button">
+              Фильтры <span class="filter-count" id="filter-count" hidden>0</span>
+            </button>
+            <label class="sort-field">
+              <span>Сортировка</span>
+              <select id="sort-mode">
+                <option value="time">По времени</option>
+                <option value="importance">По важности</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="search-summary" id="search-summary" hidden>
+            <p id="search-summary-text"></p>
+            <button type="button" id="clear-search-button">Очистить поиск</button>
+          </div>
+
+          <div class="task-groups" id="task-groups">
+            <section class="task-group" data-status="in_progress">
+              <button class="task-group__header" type="button" aria-expanded="true">
+                <span><span class="status-dot status-dot--progress"></span>В работе</span>
+                <span class="task-group__count" data-count>0</span>
+              </button>
+              <div class="task-list" data-list></div>
+            </section>
+
+            <section class="task-group" data-status="completed">
+              <button class="task-group__header" type="button" aria-expanded="true">
+                <span><span class="status-dot status-dot--completed"></span>Выполнено</span>
+                <span class="task-group__count" data-count>0</span>
+              </button>
+              <div class="task-list" data-list></div>
+            </section>
+
+            <section class="task-group" data-status="overdue">
+              <button class="task-group__header" type="button" aria-expanded="true">
+                <span><span class="status-dot status-dot--overdue"></span>Просрочено</span>
+                <span class="task-group__count" data-count>0</span>
+              </button>
+              <div class="task-list" data-list></div>
+            </section>
+          </div>
+          <div class="search-results" id="search-results" hidden></div>
+        </section>
+
+        <aside class="career-panel" aria-labelledby="career-heading">
+          <div class="career-panel__heading">
+            <p class="eyebrow">Карьерный баланс</p>
+            <h2 id="career-heading">Ваши сферы</h2>
+            <p>Каждая завершённая задача со временем будет укреплять выбранные направления.</p>
+          </div>
+          <div class="career-wheel" id="career-wheel" role="img" aria-label="Круг карьерных сфер"></div>
+          <div class="career-list career-legend" id="career-list" aria-label="Обозначения карьерных сфер"></div>
+        </aside>
+      </main>
+    </div>
+
+    <dialog class="task-dialog" id="task-dialog" aria-labelledby="task-dialog-title">
+      <form id="task-form" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Рабочая задача</p>
+            <h2 id="task-dialog-title">Добавить задачу</h2>
+          </div>
+          <button class="icon-button" id="close-dialog-button" type="button" aria-label="Закрыть форму">
+            ×
+          </button>
+        </div>
+
+        <input id="task-id" type="hidden" />
+
+        <div class="form-field">
+          <label for="task-title">Название <span aria-hidden="true">*</span></label>
+          <input
+            id="task-title"
+            name="title"
+            type="text"
+            maxlength="120"
+            autocomplete="off"
+            aria-describedby="task-title-error task-title-counter"
+            required
+          />
+          <div class="field-meta">
+            <span class="field-error" id="task-title-error"></span>
+            <span id="task-title-counter">0 / 120</span>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="task-description">Описание</label>
+          <textarea
+            id="task-description"
+            name="description"
+            rows="4"
+            maxlength="2000"
+            aria-describedby="task-description-error task-description-counter"
+          ></textarea>
+          <div class="field-meta">
+            <span class="field-error" id="task-description-error"></span>
+            <span id="task-description-counter">0 / 2000</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="task-date">Дата <span aria-hidden="true">*</span></label>
+            <input id="task-date" name="date" type="date" aria-describedby="task-date-error" required />
+            <span class="field-error" id="task-date-error"></span>
+          </div>
+          <div class="form-field">
+            <label for="task-time">Время</label>
+            <input id="task-time" name="time" type="time" />
+          </div>
+        </div>
+
+        <div class="form-field" id="past-status-field" hidden>
+          <label for="task-status">Состояние прошедшей задачи</label>
+          <select id="task-status" name="status">
+            <option value="overdue">Просрочено</option>
+            <option value="completed">Выполнено</option>
+          </select>
+          <p class="field-hint">Прошедшую задачу нельзя оставить в работе.</p>
+        </div>
+
+        <fieldset class="sphere-fieldset" aria-describedby="task-spheres-error">
+          <legend>Сферы карьеры <span aria-hidden="true">*</span></legend>
+          <div class="sphere-options" id="sphere-options"></div>
+          <span class="field-error" id="task-spheres-error"></span>
+        </fieldset>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="task-importance">Важность</label>
+            <select id="task-importance" name="importance">
+              <option value="low">Низкая</option>
+              <option value="normal" selected>Обычная</option>
+              <option value="high">Высокая</option>
+            </select>
+          </div>
+          <fieldset class="points-fieldset">
+            <legend>Очки</legend>
+            <label><input type="radio" name="points" value="1" checked /> 1 очко</label>
+            <label><input type="radio" name="points" value="2" /> 2 очка</label>
+          </fieldset>
+        </div>
+
+        <p class="form-error-summary" id="form-error-summary" role="alert"></p>
+
+        <div class="dialog-actions">
+          <button class="button button--danger button--danger-quiet" id="delete-task-button" type="button" hidden>
+            Удалить
+          </button>
+          <span class="dialog-actions__spacer"></span>
+          <button class="button button--secondary" id="cancel-dialog-button" type="button">Отмена</button>
+          <button class="button button--primary" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="panel-dialog" id="filters-dialog" aria-labelledby="filters-dialog-title">
+      <form id="filters-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Отбор задач</p>
+            <h2 id="filters-dialog-title">Фильтры</h2>
+          </div>
+          <button class="icon-button" id="close-filters-button" type="button" aria-label="Закрыть фильтры">×</button>
+        </div>
+
+        <fieldset class="filter-fieldset">
+          <legend>Состояние</legend>
+          <div class="check-list">
+            <label><input type="checkbox" name="filter-status" value="in_progress" /> В работе</label>
+            <label><input type="checkbox" name="filter-status" value="completed" /> Выполнено</label>
+            <label><input type="checkbox" name="filter-status" value="overdue" /> Просрочено</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="filter-fieldset">
+          <legend>Сферы</legend>
+          <div class="check-list" id="sphere-filter-options"></div>
+        </fieldset>
+
+        <fieldset class="filter-fieldset">
+          <legend>Важность</legend>
+          <div class="check-list">
+            <label><input type="checkbox" name="filter-importance" value="high" /> Высокая</label>
+            <label><input type="checkbox" name="filter-importance" value="normal" /> Обычная</label>
+            <label><input type="checkbox" name="filter-importance" value="low" /> Низкая</label>
+          </div>
+        </fieldset>
+
+        <div class="dialog-actions">
+          <button class="button button--secondary" id="reset-filters-button" type="button">Сбросить</button>
+          <span class="dialog-actions__spacer"></span>
+          <button class="button button--secondary" id="cancel-filters-button" type="button">Отмена</button>
+          <button class="button button--primary" type="submit">Применить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="panel-dialog" id="settings-dialog" aria-labelledby="settings-dialog-title">
+      <form id="settings-form" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Персонализация</p>
+            <h2 id="settings-dialog-title">Настройки</h2>
+          </div>
+          <button class="icon-button" id="close-settings-button" type="button" aria-label="Закрыть настройки">×</button>
+        </div>
+
+        <section class="settings-section" aria-labelledby="sphere-names-heading">
+          <div class="settings-section__heading">
+            <div>
+              <h3 id="sphere-names-heading">Названия сфер</h3>
+              <p>Изменение названия применяется ко всем задачам. Цвет и накопленный прогресс сохраняются.</p>
+            </div>
+            <button class="text-button" id="reset-sphere-names-button" type="button">Вернуть стандартные</button>
+          </div>
+          <div class="sphere-name-fields" id="sphere-name-fields"></div>
+          <p class="form-error-summary" id="settings-error-summary" role="alert"></p>
+        </section>
+
+        <div class="dialog-actions">
+          <span class="dialog-actions__spacer"></span>
+          <button class="button button--secondary" id="cancel-settings-button" type="button">Отмена</button>
+          <button class="button button--primary" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  </body>
+</html>
