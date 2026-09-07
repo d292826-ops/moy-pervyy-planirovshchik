@@ -7,6 +7,7 @@
       name="description"
       content="Локальный планировщик рабочих задач и карьерного развития"
     />
+    <meta name="theme-color" content="#0e1013" />
     <title>Успешная карьера</title>
     <link rel="stylesheet" href="style.css" />
     <script src="script.js" defer></script>
@@ -24,6 +25,13 @@
 
         <div class="topbar__actions">
           <p class="today-label" id="today-label"></p>
+          <div class="streak-pill" id="streak-pill" aria-live="polite">
+            <span class="streak-pill__icon" aria-hidden="true">🔥</span>
+            <span>
+              <strong id="streak-current">Начните серию</strong>
+              <small id="streak-best">Лучшая серия: 0 дней</small>
+            </span>
+          </div>
           <button class="icon-button" id="settings-button" type="button" aria-label="Открыть настройки">
             ⚙
           </button>

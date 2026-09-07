@@ -19,11 +19,11 @@ const CONFIG = Object.freeze({
     9: 16200,
   }),
   spheres: Object.freeze({
-    ambitions: { defaultLabel: "Амбиции", color: "#7c3aed" },
-    development: { defaultLabel: "Развитие", color: "#2563eb" },
-    colleagues: { defaultLabel: "Коллеги", color: "#0f766e" },
-    money: { defaultLabel: "Деньги", color: "#15803d" },
-    joy: { defaultLabel: "Радость", color: "#d97706" },
+    ambitions: { defaultLabel: "Амбиции", color: "#b57cff" },
+    development: { defaultLabel: "Развитие", color: "#5e9cff" },
+    colleagues: { defaultLabel: "Коллеги", color: "#45d2c2" },
+    money: { defaultLabel: "Деньги", color: "#5bd17f" },
+    joy: { defaultLabel: "Радость", color: "#ffb34d" },
   }),
   statuses: Object.freeze({
     in_progress: "В работе",
@@ -585,8 +585,40 @@ const Tasks = {
   },
 };
 
-/* Streaks, Maintenance, Notifications и Backup появятся на следующих этапах. */
-const Streaks = {};
+/* Серия рассчитывается по доступным задачам без изменения формата localStorage. */
+const Streaks = {
+  calculate(state, throughDate = DateUtils.todayISO()) {
+    const summaries = new Map();
+    for (const task of Tasks.active(state)) {
+      if (task.scheduledDate > throughDate) continue;
+      const summary = summaries.get(task.scheduledDate) ?? { plannedUnits: 0, completedUnits: 0 };
+      summary.plannedUnits += task.taskUnits;
+      if (task.status === "completed") summary.completedUnits += task.taskUnits;
+      summaries.set(task.scheduledDate, summary);
+    }
+
+    let current = 0;
+    let best = 0;
+    for (const [date, summary] of [...summaries.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+      const productive =
+        summary.completedUnits > 0 &&
+        summary.completedUnits * 100 >= summary.plannedUnits * 60;
+      if (date === throughDate && !productive) continue;
+      current = productive ? current + 1 : 0;
+      best = Math.max(best, current);
+    }
+    return { current, best };
+  },
+
+  formatDays(value) {
+    const lastTwo = value % 100;
+    const last = value % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) return `${value} дней`;
+    if (last === 1) return `${value} день`;
+    if (last >= 2 && last <= 4) return `${value} дня`;
+    return `${value} дней`;
+  },
+};
 const Maintenance = {};
 const Notifications = {};
 const Backup = {};
@@ -604,6 +636,9 @@ const UI = {
       ],
       storageAlert: document.querySelector("#storage-alert"),
       todayLabel: document.querySelector("#today-label"),
+      streakPill: document.querySelector("#streak-pill"),
+      streakCurrent: document.querySelector("#streak-current"),
+      streakBest: document.querySelector("#streak-best"),
       selectedDateTitle: document.querySelector("#selected-date-title"),
       selectedDateFull: document.querySelector("#selected-date-full"),
       selectedDateInput: document.querySelector("#selected-date-input"),
@@ -1110,7 +1145,11 @@ const UI = {
 
   showToast(message, options = {}) {
     const toast = document.createElement("div");
-    toast.className = `toast ${options.error ? "toast--error" : ""}`.trim();
+    toast.className = [
+      "toast",
+      options.error ? "toast--error" : "",
+      options.celebration ? "toast--celebration" : "",
+    ].filter(Boolean).join(" ");
     const text = document.createElement("span");
     text.textContent = message;
     toast.append(text);
@@ -1127,7 +1166,7 @@ const UI = {
     }
 
     this.elements.toastRegion.append(toast);
-    window.setTimeout(() => toast.remove(), options.duration ?? 3600);
+    window.setTimeout(() => toast.remove(), options.duration ?? 3000);
     return toast;
   },
 };
@@ -1217,6 +1256,7 @@ Object.assign(UI, {
 
       const legendItem = document.createElement("article");
       legendItem.className = "career-legend__item";
+      legendItem.dataset.sphereId = sphereId;
       legendItem.style.setProperty("--sphere-color", sphere.color);
       const legendColor = document.createElement("span");
       legendColor.className = "career-legend__color";
@@ -1445,6 +1485,7 @@ Object.assign(UI, {
 
   render() {
     this.renderDate();
+    this.renderStreak();
     this.renderWeek();
     this.renderMonth();
     this.renderTasks();
@@ -1457,6 +1498,50 @@ Object.assign(UI, {
     this.elements.selectedDateFull.textContent = DateUtils.formatFull(App.selectedDate);
     this.elements.selectedDateInput.value = App.selectedDate;
     this.elements.todayButton.hidden = App.selectedDate === today;
+  },
+
+  renderStreak() {
+    const streak = Streaks.calculate(App.state);
+    this.elements.streakCurrent.textContent = streak.current
+      ? `Серия: ${Streaks.formatDays(streak.current)}`
+      : "Начните серию";
+    this.elements.streakBest.textContent = `Лучшая серия: ${Streaks.formatDays(streak.best)}`;
+    this.elements.streakPill.dataset.current = String(streak.current);
+    this.elements.streakPill.classList.toggle("streak-pill--active", streak.current > 0);
+    this.elements.streakPill.setAttribute(
+      "aria-label",
+      streak.current
+        ? `Текущая серия ${Streaks.formatDays(streak.current)}. Лучшая серия ${Streaks.formatDays(streak.best)}.`
+        : `Текущей серии нет. Лучшая серия ${Streaks.formatDays(streak.best)}.`,
+    );
+  },
+
+  celebrateCompletion(taskId, raisedSpheres) {
+    const card = [...document.querySelectorAll(".task-card")].find(
+      (item) => item.dataset.taskId === taskId,
+    );
+    card?.classList.add("task-card--celebrated");
+    this.elements.streakPill.classList.add("streak-pill--celebrated");
+
+    if (raisedSpheres.length) {
+      const careerPanel = this.elements.careerWheel.closest(".career-panel");
+      careerPanel?.classList.add("career-panel--level-up");
+      for (const sphereId of raisedSpheres) {
+        const item = [...this.elements.careerList.querySelectorAll(".career-legend__item")].find(
+          (element) => element.dataset.sphereId === sphereId,
+        );
+        item?.classList.add("career-legend__item--level-up");
+      }
+      window.setTimeout(() => careerPanel?.classList.remove("career-panel--level-up"), 900);
+    }
+
+    window.setTimeout(() => {
+      card?.classList.remove("task-card--celebrated");
+      this.elements.streakPill.classList.remove("streak-pill--celebrated");
+      for (const item of this.elements.careerList.querySelectorAll(".career-legend__item--level-up")) {
+        item.classList.remove("career-legend__item--level-up");
+      }
+    }, 900);
   },
 
   renderWeek() {
@@ -1928,11 +2013,23 @@ const App = {
     const raisedSpheres = Object.keys(CONFIG.spheres).filter(
       (sphereId) => Career.getLevel(this.state, sphereId) > previousLevels[sphereId],
     );
-    UI.showToast(
-      raisedSpheres.length
-        ? `Новый уровень: ${raisedSpheres.map((id) => Career.getLabel(this.state, id)).join(", ")}.`
-        : "Задача выполнена, прогресс сфер обновлён.",
-    );
+    UI.celebrateCompletion(taskId, raisedSpheres);
+    if (raisedSpheres.length === 1) {
+      const sphereId = raisedSpheres[0];
+      UI.showToast(
+        `Новый уровень! Сфера «${Career.getLabel(this.state, sphereId)}» достигла уровня ${Career.getLevel(this.state, sphereId)}.`,
+        { celebration: true },
+      );
+      return;
+    }
+    if (raisedSpheres.length > 1) {
+      UI.showToast(
+        `Новый уровень! Выросли сферы: ${raisedSpheres.map((id) => Career.getLabel(this.state, id)).join(", ")}.`,
+        { celebration: true },
+      );
+      return;
+    }
+    UI.showToast(`Задача выполнена. +${Units.taskLabel(task.taskUnits)}.`, { celebration: true });
   },
 
   softDeleteTask(taskId) {
